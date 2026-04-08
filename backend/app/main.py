@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sentence_transformers import SentenceTransformer
 import psycopg2
 import os
@@ -7,6 +8,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def get_connection():
