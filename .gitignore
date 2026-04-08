@@ -2,3 +2,4 @@
 backend/data.csb.json
 __pycache__/
 *.pyc
+main.cpython-311.pyc

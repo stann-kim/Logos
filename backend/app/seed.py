@@ -37,7 +37,7 @@ def seed():
     print(f"Loaded {len(verses)} verses")
 
     print("Loading model...")
-    model = SentenceTransformer("all-MiniLM-L6-v2")
+    model = SentenceTransformer("multi-qa-mpnet-base-dot-v1")
 
     print("Generating embeddings...")
     texts = [v["text"] for v in verses]
