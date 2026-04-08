@@ -1,2 +1,4 @@
 .env
 backend/data.csb.json
+__pycache__/
+*.pyc
