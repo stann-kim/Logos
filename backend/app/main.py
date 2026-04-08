@@ -46,7 +46,7 @@ def root():
 @app.get("/search")
 def search(
     q: str = Query(..., min_length=2, max_length=200),
-    limit: int = Query(default=10, ge=1, le=50)
+    limit: int = Query(default=5, ge=1, le=50)
 ):
     try:
         embedding = model.encode(f"Bible verses about {q}").tolist()
