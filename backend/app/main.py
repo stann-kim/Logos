@@ -4,10 +4,18 @@ from sentence_transformers import SentenceTransformer
 from psycopg2 import pool
 import os
 from dotenv import load_dotenv
+import time
+import logging
 
 load_dotenv()
 
 app = FastAPI()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,6 +56,7 @@ def search(
     q: str = Query(..., min_length=2, max_length=200),
     limit: int = Query(default=5, ge=1, le=50)
 ):
+    start = time.time()
     try:
         embedding = model.encode(f"Bible verses about {q}").tolist()
         conn = db_pool.getconn()
@@ -65,6 +74,9 @@ def search(
         finally:
             db_pool.putconn(conn)
 
+        latency = round((time.time() - start) * 1000)
+        logger.info(f"query='{q}' results={len(rows)} latency={latency}ms")
+
         return {
             "query": q,
             "results": [
@@ -79,4 +91,5 @@ def search(
             ]
         }
     except Exception as e:
+        logger.error(f"query='{q}' error={str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

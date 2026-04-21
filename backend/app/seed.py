@@ -37,7 +37,8 @@ def seed():
     print(f"Loaded {len(verses)} verses")
 
     print("Loading model...")
-    model = SentenceTransformer("multi-qa-mpnet-base-dot-v1")
+    MODEL_NAME = "multi-qa-mpnet-base-dot-v1"
+    model = SentenceTransformer(MODEL_NAME)
 
     print("Generating embeddings...")
     texts = [v["text"] for v in verses]
@@ -47,17 +48,22 @@ def seed():
     conn = get_connection()
     cur = conn.cursor()
 
+    # Clear existing verses before reseeding
+    cur.execute("DELETE FROM verses WHERE translation = %s", [TRANSLATION])
+    conn.commit()
+
     for i, verse in enumerate(verses):
         cur.execute("""
-            INSERT INTO verses (book, chapter, verse, translation, text, embedding)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO verses (book, chapter, verse, translation, text, embedding, model_version)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (
             verse["book"],
             verse["chapter"],
             verse["verse"],
             verse["translation"],
             verse["text"],
-            embeddings[i].tolist()
+            embeddings[i].tolist(),
+            MODEL_NAME
         ))
 
     conn.commit()
