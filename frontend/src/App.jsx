@@ -6,19 +6,49 @@ export default function App() {
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
+  const [expandedVerse, setExpandedVerse] = useState(null)
+  const [context, setContext] = useState({})
+  const [loadingContext, setLoadingContext] = useState(null)
 
   async function handleSearch() {
     if (!query.trim()) return
     setLoading(true)
     setSearched(true)
+    setExpandedVerse(null)
+    setContext({})
+
     try {
-      const res = await fetch(`http://localhost:8000/search?q=${encodeURIComponent(query)}`)
+      const isVerseRef = /^.+\s+\d+:\d+$/.test(query.trim())
+      const url = isVerseRef
+        ? `http://localhost:8000/verse?ref=${encodeURIComponent(query)}`
+        : `http://localhost:8000/search?q=${encodeURIComponent(query)}`
+
+      const res = await fetch(url)
       const data = await res.json()
-      setResults(data.results)
+      setResults(res.ok ? data.results : [])
     } catch (e) {
       setResults([])
     }
     setLoading(false)
+  }
+
+  async function handleVerseClick(r, i) {
+    if (expandedVerse === i) {
+      setExpandedVerse(null)
+      return
+    }
+    setExpandedVerse(i)
+    if (context[i]) return
+
+    setLoadingContext(i)
+    try {
+      const res = await fetch(`http://localhost:8000/context/${encodeURIComponent(r.book)}/${r.chapter}/${r.verse}`)
+      const data = await res.json()
+      setContext(prev => ({ ...prev, [i]: data.context }))
+    } catch (e) {
+      setContext(prev => ({ ...prev, [i]: null }))
+    }
+    setLoadingContext(null)
   }
 
   return (
@@ -88,7 +118,7 @@ export default function App() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSearch()}
-            placeholder="e.g. feeling anxious and overwhelmed..."
+            placeholder="Search by meaning or verse e.g. John 3:16..."
             style={{
               flex: 1, height: 48, padding: "0 16px", fontSize: 15,
               fontFamily: "sans-serif",
@@ -135,19 +165,28 @@ export default function App() {
             Searching...
           </p>
         )}
+
+        {!loading && searched && results.length === 0 && (
+          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, fontFamily: "sans-serif" }}>
+            No results found.
+          </p>
+        )}
+
         {!loading && results.map((r, i) => (
           <div key={i}
+            onClick={() => handleVerseClick(r, i)}
             style={{
-              background: "rgba(255,255,255,0.08)",
+              background: expandedVerse === i ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.08)",
               border: "0.5px solid rgba(255,255,255,0.15)",
               borderRadius: 16, padding: "1.25rem 1.5rem",
               marginBottom: 10,
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
               transition: "background 0.2s",
+              cursor: "pointer",
             }}
             onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.13)"}
-            onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+            onMouseLeave={e => e.currentTarget.style.background = expandedVerse === i ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.08)"}
           >
             <p style={{
               fontSize: 15, lineHeight: 1.75,
@@ -164,7 +203,7 @@ export default function App() {
                 letterSpacing: "0.06em",
                 color: "rgba(255,255,255,0.95)",
                 textShadow: "0 0 20px rgba(255,255,255,0.1)",
-                textAlign: "left"
+                textAlign: "left",
               }}>
                 {r.book} {r.chapter}:{r.verse}
               </span>
@@ -173,9 +212,56 @@ export default function App() {
                 color: "rgba(255,255,255,0.4)",
                 fontFamily: "sans-serif",
               }}>
-                {Math.round(r.similarity * 100)}% match
+                {expandedVerse === i ? "▲ collapse" : "▼ context"} · {Math.round(r.similarity * 100)}% match
               </span>
             </div>
+
+            {/* Expanded context */}
+            {expandedVerse === i && (
+              <div style={{
+                marginTop: 16,
+                borderTop: "0.5px solid rgba(255,255,255,0.15)",
+                paddingTop: 16,
+              }}>
+                {loadingContext === i && (
+                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", fontFamily: "sans-serif" }}>
+                    Loading context...
+                  </p>
+                )}
+                {context[i] && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {[
+                      { key: "book_intro", label: "Book Introduction" },
+                      { key: "passage_context", label: "Passage Context" },
+                      { key: "cultural_notes", label: "Cultural Notes" },
+                    ].map(({ key, label }) => context[i][key] && (
+                      <div key={key}>
+                        <p style={{
+                          fontSize: 10, fontWeight: 600, letterSpacing: "0.1em",
+                          textTransform: "uppercase", color: "rgba(255,255,255,0.4)",
+                          fontFamily: "sans-serif", marginBottom: 4,
+                        }}>
+                          {label}
+                        </p>
+                        <p style={{
+                          fontSize: 13, lineHeight: 1.7,
+                          color: "rgba(255,255,255,0.8)",
+                          fontFamily: "sans-serif",
+                          textAlign: "left",
+                        }}>
+                          {context[i][key]}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {context[i] === null && (
+                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", fontFamily: "sans-serif" }}>
+                    Could not load context.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
